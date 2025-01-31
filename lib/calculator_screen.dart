@@ -28,6 +28,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   double totalRevenueShare = 0.0;
   double feePercentage = 0.0;
   double feeAmount = 0.0;
+  double expectedAPR = 0.0;
   int expectedTransfers = 0;
   String completionDate = "";
 
@@ -116,6 +117,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     setState(() {
         double annualRevenue = double.tryParse(revenueController.text) ?? 0.0;
         double loanAmount = double.tryParse(loanController.text) ?? 0.0;
+        double revenue_percentageMin = double.tryParse(config?['revenue_percentage_min']['value'] ?? '0.0') ?? 0.0;
+        double revenue_percentageMax = double.tryParse(config?['revenue_percentage_max']['value'] ?? '0.0') ?? 0.0;
 
         // Return if inputs are invalid
         if (annualRevenue <= 0.0 || loanAmount <= 0.0) {
@@ -132,6 +135,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         feePercentage = double.tryParse(config?['desired_fee_percentage']['value'] ?? "0.0") ?? 0.0;
         feeAmount = loanAmount * feePercentage; 
         totalRevenueShare = loanAmount + feeAmount;
+        revenueSharePercentage = revenueSharePercentage.clamp(revenue_percentageMin, revenue_percentageMax);
         double revenueShareAsFraction = revenueSharePercentage / 100;
 
         // Calculate expected transfers
@@ -155,6 +159,17 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             repaymentDelayDays,
             repaymentFrequency,
         );
+
+        // **Calculate Expected APR**
+        DateTime today = DateTime.now();
+        DateTime expectedCompletionDate = DateFormat('MMMM dd, yyyy').parse(completionDate);
+        int daysToCompletion = expectedCompletionDate.difference(today).inDays;
+
+        if (daysToCompletion > 0) {
+            expectedAPR = ((feePercentage / daysToCompletion) * 365 * 100);
+        } else {
+            expectedAPR = 0.0; // Avoid division by zero
+        }
     });
   }
   
@@ -365,8 +380,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                                 style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             Text(
-                                '${revenueSharePercentage.toStringAsFixed(2)}%',
-                                style: TextStyle(fontSize: 16, color: Colors.deepPurple),
+                              (revenueController.text.isEmpty || double.tryParse(revenueController.text) == null || double.tryParse(revenueController.text) == 0.0)
+                              ? '-'  // Show "-" if revenue is not entered or 0
+                              : '${revenueSharePercentage.toStringAsFixed(2)}%',  // Show calculated percentage if valid
+                              style: TextStyle(fontSize: 16, color: Colors.deepPurple),
                             ),
                         ],
                     ),
@@ -534,6 +551,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                                     'Fees',
                                     '(${(feePercentage * 100).toStringAsFixed(0)}%) \$${feeAmount.toStringAsFixed(2)}',
                                 ),
+                                const SizedBox(height: 16),
+                                buildResultRow('Expected APR', '${expectedAPR.toStringAsFixed(2)}%'), // **New Field**
                                 const SizedBox(height: 16),
                                 const Divider(thickness: 1.0, color: Colors.grey),
                                 const SizedBox(height: 16),
