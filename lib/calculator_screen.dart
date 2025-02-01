@@ -98,18 +98,25 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     });
   }
 
-    // Calculate the expected completion date
+  // Calculate the expected completion date based on repayment frequency and delay
     String calculateCompletionDate(double expectedTransfers, int repaymentDelay, String frequency) {
     DateTime now = DateTime.now();
-    int durationInDays = 0;
+    DateTime completionDate = now;
+
     if (frequency.toLowerCase() == 'weekly') {
-        durationInDays = (expectedTransfers * 7).ceil();
+        completionDate = completionDate.add(Duration(days: expectedTransfers.toInt() * DateTime.daysPerWeek)); 
     } else if (frequency.toLowerCase() == 'monthly') {
-        durationInDays = (expectedTransfers * 30).ceil();
-    }
-    durationInDays += repaymentDelay;
-    DateTime completionDate = now.add(Duration(days: durationInDays));
-    return DateFormat('MMMM dd, yyyy').format(completionDate);
+        completionDate = DateTime(
+            completionDate.year,
+            completionDate.month + expectedTransfers.toInt(),
+            completionDate.day
+        );
+      }
+
+      // Add repayment delay
+      completionDate = completionDate.add(Duration(days: repaymentDelay));
+
+      return DateFormat('MMMM dd, yyyy').format(completionDate);
     }
 
   // Calculate results based on user inputs and configurations
@@ -173,7 +180,42 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     });
   }
   
-  // Evaluate the formula provided in the configuration
+    /*
+   * The `evaluateFormula` method is responsible for dynamically calculating a value
+   * based on a formula provided in the API response. It replaces placeholders 
+   * with actual values, processes the formula using a mathematical parser, 
+   * and returns the computed result.
+   *
+   * Step 1: The function receives three parameters: 
+   *         - `formula`: A string containing a mathematical formula (e.g., "funding_amount / revenue_amount")
+   *         - `revenue`: The user's business revenue input.
+   *         - `loanAmount`: The user's loan amount input.
+   *
+   * Step 2: The function replaces the placeholder values in the formula string 
+   *         with actual numbers. 
+   *         - "revenue_amount" is replaced with the value of `revenue.toString()`
+   *         - "funding_amount" is replaced with the value of `loanAmount.toString()`
+   *         
+   * Step 3: The function ensures that division ("/") and multiplication ("*") 
+   *         have proper spacing. This prevents potential parsing issues where 
+   *         operators might be incorrectly interpreted.
+   *
+   * Step 4: It initializes a `Parser` object and uses it to parse the modified 
+   *         formula string into an `Expression`. 
+   *         
+   * Step 5: A `ContextModel` is created. This is required by the Math Expressions library 
+   *         to provide a scope for variable evaluation (although we do not use variables explicitly).
+   *
+   * Step 6: The `evaluate()` method is called on the parsed expression with 
+   *         `EvaluationType.REAL`, which means it evaluates the expression as a real number.
+   *
+   * Step 7: The final computed result is multiplied by 100 to convert it into a percentage 
+   *         (if required by the business logic).
+   *
+   * Step 8: If an error occurs during parsing or evaluation, the function catches the error, 
+   *         prints an error message for debugging, and returns `0.0` as a fallback.
+   */
+
   double evaluateFormula(String formula, double revenue, double loanAmount) {
     try {
         formula = formula.replaceAll("revenue_amount", revenue.toString());
